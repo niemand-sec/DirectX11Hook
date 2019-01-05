@@ -1,0 +1,39 @@
+<VSTemplate Version="3.0.0" xmlns="http://schemas.microsoft.com/developer/vstemplate/2005" Type="Project">
+  <TemplateData>
+    <Name>DirectX11Hook</Name>
+    <Description>Template to hook DirectX11 and use ImGui library for rendering content.</Description>
+    <ProjectType>VC</ProjectType>
+    <ProjectSubType>
+    </ProjectSubType>
+    <SortOrder>1000</SortOrder>
+    <CreateNewFolder>true</CreateNewFolder>
+    <DefaultName>DirectX11Hook</DefaultName>
+    <ProvideDefaultName>true</ProvideDefaultName>
+    <LocationField>Enabled</LocationField>
+    <EnableLocationBrowseButton>true</EnableLocationBrowseButton>
+    <Icon>__TemplateIcon.ico</Icon>
+  </TemplateData>
+  <TemplateContent>
+    <Project TargetFileName="DirectX11Hook.vcxproj" File="DirectX11Hook.vcxproj" ReplaceParameters="true">
+      <ProjectItem ReplaceParameters="false" TargetFileName="$projectname$.vcxproj.filters">DirectX11Hook.vcxproj.filters</ProjectItem>
+      <ProjectItem ReplaceParameters="false" TargetFileName="DirectX11Hook.cpp">DirectX11Hook.cpp</ProjectItem>
+      <ProjectItem ReplaceParameters="false" TargetFileName="imgui_impl_dx11.cpp">imgui_impl_dx11.cpp</ProjectItem>
+      <ProjectItem ReplaceParameters="false" TargetFileName="imgui_impl_win32.cpp">imgui_impl_win32.cpp</ProjectItem>
+      <ProjectItem ReplaceParameters="false" TargetFileName="imgui.cpp">imgui.cpp</ProjectItem>
+      <ProjectItem ReplaceParameters="false" TargetFileName="imgui_demo.cpp">imgui_demo.cpp</ProjectItem>
+      <ProjectItem ReplaceParameters="false" TargetFileName="imgui_draw.cpp">imgui_draw.cpp</ProjectItem>
+      <ProjectItem ReplaceParameters="false" TargetFileName="imgui_widgets.cpp">imgui_widgets.cpp</ProjectItem>
+      <ProjectItem ReplaceParameters="false" TargetFileName="stdafx.h">stdafx.h</ProjectItem>
+      <ProjectItem ReplaceParameters="false" TargetFileName="targetver.h">targetver.h</ProjectItem>
+      <ProjectItem ReplaceParameters="false" TargetFileName="detours.h">detours.h</ProjectItem>
+      <ProjectItem ReplaceParameters="false" TargetFileName="imgui.h">imgui.h</ProjectItem>
+      <ProjectItem ReplaceParameters="false" TargetFileName="imgui_impl_dx11.h">imgui_impl_dx11.h</ProjectItem>
+      <ProjectItem ReplaceParameters="false" TargetFileName="imgui_impl_win32.h">imgui_impl_win32.h</ProjectItem>
+      <ProjectItem ReplaceParameters="false" TargetFileName="imconfig.h">imconfig.h</ProjectItem>
+      <ProjectItem ReplaceParameters="false" TargetFileName="imgui_internal.h">imgui_internal.h</ProjectItem>
+      <ProjectItem ReplaceParameters="false" TargetFileName="imstb_rectpack.h">imstb_rectpack.h</ProjectItem>
+      <ProjectItem ReplaceParameters="false" TargetFileName="imstb_textedit.h">imstb_textedit.h</ProjectItem>
+      <ProjectItem ReplaceParameters="false" TargetFileName="imstb_truetype.h">imstb_truetype.h</ProjectItem>
+    </Project>
+  </TemplateContent>
+</VSTemplate>
