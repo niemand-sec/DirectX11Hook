@@ -9,8 +9,8 @@ Template for Visual Studio 2017 that you could use to hook games that use Direct
 
 ## Shortcuts:
 
-- **PGUP**  - Mode forward in the model list
-- **PGDN**  - Mode backward in the model list
+- **PGUP**  - Move forward in the model list
+- **PGDN**  - Move backward in the model list
 - **L**     - Log current model information to console
 - **F9**    - Change between Texture and Shader highlighting
 
