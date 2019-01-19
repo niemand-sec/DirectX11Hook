@@ -2,6 +2,7 @@
 
 Template for Visual Studio 2017 that you could use to hook games that use DirectX11. The template also hook the IO as explained in my blog post, required to use properly ImGui. Additional features are going to be added as soon as possible. [@niemand_sec](https://twitter.com/niemand_sec)
 
+![](https://github.com/niemand-sec/DirectX11Hook/raw/master/Vermintide2_ImGUI.gif)
 
 ## Features:
 - Initial Release
@@ -45,4 +46,5 @@ How to Hook DirectX 11 + ImGui (Vermintide 2):
 Fingerprinting Models when hooking DirectX (Vermintide 2):
 - https://niemand.com.ar/2019/01/08/fingerprinting-models-when-hooking-directx-vermintide-2/
 
-![](https://niemand.com.ar/wp-content/uploads/2019/01/Vermintide2_ImGUI.gif)
+
+![](https://github.com/niemand-sec/DirectX11Hook/raw/master/20190113171653_1.jpg)
