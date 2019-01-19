@@ -46,5 +46,10 @@ How to Hook DirectX 11 + ImGui (Vermintide 2):
 Fingerprinting Models when hooking DirectX (Vermintide 2):
 - https://niemand.com.ar/2019/01/08/fingerprinting-models-when-hooking-directx-vermintide-2/
 
+Creating your own Wallhack
+- https://niemand.com.ar/2019/01/13/creating-your-own-wallhack/
 
+## Screenshots
+
+Wallhack:
 ![](https://github.com/niemand-sec/DirectX11Hook/raw/master/20190113171653_1.jpg)
