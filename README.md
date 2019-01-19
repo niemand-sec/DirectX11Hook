@@ -4,8 +4,17 @@ Template for Visual Studio 2017 that you could use to hook games that use Direct
 
 
 ## Features:
-- DirectX11 Hooking for additional rendering
-- Model Logger
+- Initial Release
+  - DirectX11 Hooking for additional rendering
+  - Model Logger
+- Second Release (01/19/19)
+  - New keys added (DELETE, F10 and F9)
+  - Wallhack feature
+  - Enable/Disable wallhack option
+  - Backup hook for Present method
+  - Improvement while hooking Present (no more crashes)
+  - Wiping the model list for better usage
+  - Compilation/Validation for x86 and x64
 
 ## Shortcuts:
 
