@@ -11,6 +11,15 @@
 #include <unordered_set>
 #include <mutex>
 
+// Check windows
+#if _WIN32 || _WIN64
+#if _WIN64
+#define ENV64BIT
+#else
+#define ENV32BIT
+#endif
+#endif
+
 // Detours imports
 #include "detours.h"
 
@@ -20,6 +29,7 @@
 #pragma comment(lib, "D3dcompiler.lib")
 #pragma comment(lib, "d3d11.lib")
 #pragma comment(lib, "winmm.lib")
+#define SAFE_RELEASE(p)      { if(p) { (p)->Release(); (p)=NULL; } }
 
 
 //ImGUI imports
@@ -54,6 +64,7 @@ bool g_ShowMenu = false;
 bool bDrawIndexed = true;
 BOOL bModelLogging;
 bool bCurrent;
+bool g_PresentHooked = false;
 
 //vertex
 UINT veStartSlot;
@@ -92,6 +103,16 @@ struct propertiesModel
 	UINT pscdesc_ByteWidth;
 };
 
+//Z-Buffering variables
+ID3D11DepthStencilState *m_DepthStencilState;
+ID3D11DepthStencilState *m_origDepthStencilState;
+UINT pStencilRef;
+bool bWallhack = false;
+
+
+// LightHack
+bool bLighthack = false;
+
 bool operator==(const propertiesModel& lhs, const propertiesModel& rhs)
 {
 	if (lhs.stride != rhs.stride
@@ -127,9 +148,9 @@ namespace std {
 
 struct propertiesModel	currentParams;
 std::unordered_set<propertiesModel> seenParams;
+std::unordered_set<propertiesModel> wallhackParams;
 int currentParamPosition = 1;
 std::mutex g_propertiesModels;
-
 
 
 
@@ -155,7 +176,7 @@ LRESULT CALLBACK hWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 
 	if (uMsg == WM_KEYUP)
 	{
-		if (wParam == VK_DELETE)
+		if (wParam == VK_INSERT)
 		{
 			g_ShowMenu = !g_ShowMenu;
 		}
@@ -170,10 +191,6 @@ LRESULT CALLBACK hWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 
 	return CallWindowProc(OriginalWndProcHandler, hWnd, uMsg, wParam, lParam);
 }
-
-
-
-
 
 // raiders posted this here - http://www.unknowncheats.me/forum/direct3d/65135-directx-10-generateshader.html
 HRESULT GenerateShader(ID3D11Device* pD3DDevice, ID3D11PixelShader** pShader, float r, float g, float b)
@@ -213,7 +230,12 @@ HRESULT GenerateShader(ID3D11Device* pD3DDevice, ID3D11PixelShader** pShader, fl
 
 void __stdcall hookD3D11DrawIndexed(ID3D11DeviceContext* pContext, UINT IndexCount, UINT StartIndexLocation, INT BaseVertexLocation)
 {
-	
+	if (GetAsyncKeyState(VK_DELETE) & 1)
+	{
+		bDrawIndexed = true;
+		std::cout << "[+] Model Log cleared" << std::endl;
+		seenParams.clear();
+	}
 
 	//get stride & vedesc.ByteWidth
 	pContext->IAGetVertexBuffers(0, 1, &veBuffer, &Stride, &veBufferOffset);
@@ -240,6 +262,13 @@ void __stdcall hookD3D11DrawIndexed(ID3D11DeviceContext* pContext, UINT IndexCou
 	paramsModel.pscdesc_ByteWidth = pscdesc.ByteWidth;
 	g_propertiesModels.lock();
 	seenParams.insert(paramsModel);
+
+	// We need to restore this to avoid future problems
+	if (bWallhack)
+	{
+		pContext->OMGetDepthStencilState(&m_origDepthStencilState, &pStencilRef);
+	}
+	
 	
 	if (bDrawIndexed)
 	{
@@ -266,6 +295,18 @@ void __stdcall hookD3D11DrawIndexed(ID3D11DeviceContext* pContext, UINT IndexCou
 		else
 		{
 			std::cout << "[+] Texture Mode Enabled" << std::endl;
+		}
+	}
+	if (GetAsyncKeyState(VK_F10) & 1)
+	{
+		bWallhack = !bWallhack;
+		if (bWallhack)
+		{
+			std::cout << "[+] Wallhack Enabled" << std::endl;
+		}
+		else
+		{
+			std::cout << "[+] Wallhack Disabled" << std::endl;
 		}
 	}
 	if (GetAsyncKeyState(VK_PRIOR) & 1)
@@ -309,14 +350,17 @@ void __stdcall hookD3D11DrawIndexed(ID3D11DeviceContext* pContext, UINT IndexCou
 			<< currentParams.indesc_ByteWidth << " :: "
 			<< currentParams.pscdesc_ByteWidth << std::endl;
 		std::cout << "Position " << std::dec << currentParamPosition << " of " << std::dec << seenParams.size() << std::endl;
-		std::cout << "current: " << &current << std::endl;
 	}
-	if ( (paramsModel == currentParams) && bShader)
+	if ((paramsModel == currentParams || wallhackParams.find(paramsModel) != wallhackParams.end() )&& bShader)
 	{
 		//std::cout << "[+]SAME!1" << std::endl;
 		pContext->PSSetShader(pShaderRed, NULL, NULL);
+		if (bWallhack)
+		{
+			pContext->OMSetDepthStencilState(m_DepthStencilState, 0);
+		}
 	}
-	else if ( (paramsModel == currentParams) && bTexture)
+	else if ( (paramsModel == currentParams || wallhackParams.find(paramsModel) != wallhackParams.end()) && bTexture)
 	{
 		//std::cout << "[+]SAME!2" << std::endl;
 		for (int x1 = 0; x1 <= 10; x1++)
@@ -324,11 +368,20 @@ void __stdcall hookD3D11DrawIndexed(ID3D11DeviceContext* pContext, UINT IndexCou
 			pContext->PSSetShaderResources(x1, 1, &textureView);
 		}
 		pContext->PSSetSamplers(0, 1, &pSamplerState);
+		if (bWallhack)
+		{
+			pContext->OMSetDepthStencilState(m_DepthStencilState, 0);
+		}
 	}
 	//pContext->PSSetShader(pShaderRed, NULL, NULL);
 	g_propertiesModels.unlock();
 	//std::cout << Stride << " :: " << vedesc.ByteWidth << " :: " << indesc.ByteWidth << " :: " << pscdesc.ByteWidth << std::endl;
-	return fnID3D11DrawIndexed(pContext, IndexCount, StartIndexLocation, BaseVertexLocation);
+	fnID3D11DrawIndexed(pContext, IndexCount, StartIndexLocation, BaseVertexLocation);
+	if (bWallhack)
+	{
+		pContext->OMSetDepthStencilState(m_origDepthStencilState, pStencilRef);
+		SAFE_RELEASE(m_origDepthStencilState);
+	}	
 }
 
 HRESULT GetDeviceAndCtxFromSwapchain(IDXGISwapChain *pSwapChain, ID3D11Device **ppDevice, ID3D11DeviceContext **ppContext)
@@ -344,6 +397,7 @@ HRESULT GetDeviceAndCtxFromSwapchain(IDXGISwapChain *pSwapChain, ID3D11Device **
 HRESULT __fastcall Present(IDXGISwapChain *pChain, UINT SyncInterval, UINT Flags)
 {
 	if (!g_bInitialised) {
+		g_PresentHooked = true;
 		std::cout << "\t[+] Present Hook called by first time" << std::endl;
 		if (FAILED(GetDeviceAndCtxFromSwapchain(pChain, &pDevice, &pContext)))
 			return fnIDXGISwapChainPresent(pChain, SyncInterval, Flags);
@@ -377,6 +431,33 @@ HRESULT __fastcall Present(IDXGISwapChain *pChain, UINT SyncInterval, UINT Flags
 
 		GenerateShader(pDevice, &pShaderRed, 1.0f, 0.0f, 0.0f);
 
+
+		// Disabling Z-Buffering
+		D3D11_DEPTH_STENCIL_DESC depthStencilDesc;
+		depthStencilDesc.DepthEnable = TRUE;
+		depthStencilDesc.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ALL;
+		depthStencilDesc.DepthFunc = D3D11_COMPARISON_ALWAYS;
+		depthStencilDesc.StencilEnable = FALSE;
+		depthStencilDesc.StencilReadMask = 0xFF;
+		depthStencilDesc.StencilWriteMask = 0xFF;
+
+		// Stencil operations if pixel is front-facing
+		depthStencilDesc.FrontFace.StencilFailOp = D3D11_STENCIL_OP_KEEP;
+		depthStencilDesc.FrontFace.StencilDepthFailOp = D3D11_STENCIL_OP_INCR;
+		depthStencilDesc.FrontFace.StencilPassOp = D3D11_STENCIL_OP_KEEP;
+		depthStencilDesc.FrontFace.StencilFunc = D3D11_COMPARISON_ALWAYS;
+
+		// Stencil operations if pixel is back-facing
+		depthStencilDesc.BackFace.StencilFailOp = D3D11_STENCIL_OP_KEEP;
+		depthStencilDesc.BackFace.StencilDepthFailOp = D3D11_STENCIL_OP_DECR;
+		depthStencilDesc.BackFace.StencilPassOp = D3D11_STENCIL_OP_KEEP;
+		depthStencilDesc.BackFace.StencilFunc = D3D11_COMPARISON_ALWAYS;
+
+		
+		pDevice->CreateDepthStencilState(&depthStencilDesc, &m_DepthStencilState);
+		
+
+
 		if (SUCCEEDED(hr) && textureRed != 0)
 		{
 			
@@ -408,6 +489,12 @@ HRESULT __fastcall Present(IDXGISwapChain *pChain, UINT SyncInterval, UINT Flags
 
 		g_bInitialised = true;
 	}
+	/*
+	if (bLighthack)
+	{
+		pDevice->SetRenderState(D3DRS_AMBIENT, D3DCOLOR_XRBG(100, 100, 100));
+	}
+	*/
 	ImGui_ImplWin32_NewFrame();
 	ImGui_ImplDX11_NewFrame();
 
@@ -428,16 +515,6 @@ HRESULT __fastcall Present(IDXGISwapChain *pChain, UINT SyncInterval, UINT Flags
 	return fnIDXGISwapChainPresent(pChain, SyncInterval, Flags);
 }
 
-
-/*void detourDirectX(LPVOID original, PBYTE dst)
-{
-	std::cout << "[+] Calling DirectX Detour" << std::endl;
-	DetourTransactionBegin();
-	DetourUpdateThread(GetCurrentThread());
-	// Detours the original fnIDXGISwapChainPresent with our Present
-	DetourAttach(&(LPVOID&)original, (PBYTE)dst);
-	DetourTransactionCommit();
-}*/
 
 void detourDirectXPresent()
 {
@@ -462,7 +539,11 @@ void detourDirectXDrawIndexed()
 void retrieveValues()
 {
 	DWORD_PTR hDxgi = (DWORD_PTR)GetModuleHandle("dxgi.dll");
-	fnIDXGISwapChainPresent = (IDXGISwapChainPresent)((DWORD_PTR)hDxgi + 0x5070);
+	#if defined(ENV64BIT)
+		fnIDXGISwapChainPresent = (IDXGISwapChainPresent)((DWORD_PTR)hDxgi + 0x5070);
+	#elif defined (ENV32BIT)
+		fnIDXGISwapChainPresent = (IDXGISwapChainPresent)((DWORD_PTR)hDxgi + 0x10230);
+	#endif
 	std::cout << "[+] Present Addr: " << std::hex << fnIDXGISwapChainPresent << std::endl;
 }
 
@@ -474,14 +555,88 @@ void printValues()
 	std::cout << "[+] IDXGISwapChain Addr: " << std::hex << pSwapChain << std::endl;
 }
 
+void setupWallhack() {
+	propertiesModel wallhackParamsItem;
+	wallhackParamsItem.stride = 8;
+	wallhackParamsItem.vedesc_ByteWidth = 16552;
+	wallhackParamsItem.indesc_ByteWidth = 10164;
+	wallhackParamsItem.pscdesc_ByteWidth = 832;
+	wallhackParams.insert(wallhackParamsItem);
+}
+
+LRESULT CALLBACK DXGIMsgProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) { return DefWindowProc(hwnd, uMsg, wParam, lParam); }
+
+void GetPresent()
+{
+	WNDCLASSEXA wc = { sizeof(WNDCLASSEX), CS_CLASSDC, DXGIMsgProc, 0L, 0L, GetModuleHandleA(NULL), NULL, NULL, NULL, NULL, "DX", NULL };
+	RegisterClassExA(&wc);
+	HWND hWnd = CreateWindowA("DX", NULL, WS_OVERLAPPEDWINDOW, 100, 100, 300, 300, NULL, NULL, wc.hInstance, NULL);
+
+	DXGI_SWAP_CHAIN_DESC sd;
+	ZeroMemory(&sd, sizeof(sd));
+	sd.BufferCount = 1;
+	sd.BufferDesc.Width = 2;
+	sd.BufferDesc.Height = 2;
+	sd.BufferDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+	sd.BufferDesc.RefreshRate.Numerator = 60;
+	sd.BufferDesc.RefreshRate.Denominator = 1;
+	sd.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
+	sd.OutputWindow = hWnd;
+	sd.SampleDesc.Count = 1;
+	sd.SampleDesc.Quality = 0;
+	sd.Windowed = TRUE;
+	sd.Flags = DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH;
+	D3D_FEATURE_LEVEL FeatureLevelsRequested = D3D_FEATURE_LEVEL_11_0;
+	UINT numFeatureLevelsRequested = 1;
+	D3D_FEATURE_LEVEL FeatureLevelsSupported;
+	HRESULT hr;
+	IDXGISwapChain *swapchain = 0;
+	ID3D11Device *dev = 0;
+	ID3D11DeviceContext *devcon = 0;
+	if (FAILED(hr = D3D11CreateDeviceAndSwapChain(NULL,
+		D3D_DRIVER_TYPE_HARDWARE,
+		NULL,
+		0,
+		&FeatureLevelsRequested,
+		numFeatureLevelsRequested,
+		D3D11_SDK_VERSION,
+		&sd,
+		&swapchain,
+		&dev,
+		&FeatureLevelsSupported,
+		&devcon)))
+	{
+		std::cout << "[-] Failed to hook Present with VT method." << std::endl;
+		return;		
+	}
+	DWORD_PTR* pSwapChainVtable = NULL;
+	pSwapChainVtable = (DWORD_PTR*)swapchain;
+	pSwapChainVtable = (DWORD_PTR*)pSwapChainVtable[0];
+	fnIDXGISwapChainPresent = (IDXGISwapChainPresent)(DWORD_PTR)pSwapChainVtable[8];
+	g_PresentHooked = true;
+	std::cout << "[+] Present Addr:" << fnIDXGISwapChainPresent << std::endl;
+	Sleep(2000);
+}
 
 int WINAPI main()
 {
 	ConsoleSetup();
-	retrieveValues();
+
+	GetPresent();
+
+	// If GetPresent failed we have this backup method to get Present Address
+	if (!g_PresentHooked) {
+		retrieveValues();
+	}
+	
+	setupWallhack();
+
 	// After this call, Present should be hooked and controlled by me.
 	detourDirectXPresent();
-	Sleep(4000);
+	while (!g_bInitialised) {
+		Sleep(1000);
+	}
+	
 	printValues();
 
 	std::cout << "[+] pDeviceContextVTable0 Addr: " << std::hex << pContext << std::endl;
@@ -491,6 +646,7 @@ int WINAPI main()
 	std::cout << "[+] pDeviceContextVTable2 Addr: " << std::hex << pDeviceContextVTable << std::endl;
 	//fnID3D11DrawIndexed
 	fnID3D11DrawIndexed = (ID3D11DrawIndexed)pDeviceContextVTable[12];
+
 	std::cout << "[+] pDeviceContextVTable Addr: " << std::hex << pDeviceContextVTable << std::endl;
 	std::cout << "[+] fnID3D11DrawIndexed Addr: " << std::hex << fnID3D11DrawIndexed << std::endl;
 	detourDirectXDrawIndexed();
